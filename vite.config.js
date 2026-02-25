@@ -44,7 +44,7 @@ function cssTokensPlugin() {
 
 export default defineConfig({
   plugins: [vue(), geojsonPlugin(), cssTokensPlugin()],
-  base: process.env.NODE_ENV === 'production' ? '/maraton-cali/' : '/',
+  base: process.env.NODE_ENV === 'production' ? '/acapulco/' : '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
