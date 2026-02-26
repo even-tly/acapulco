@@ -10,7 +10,7 @@ Aplicación web interactiva para visualizar las rutas de la **Maratón de Cali 2
 
 | Capa | Tecnología |
 |---|---|
-| Framework | **Vue 3** (Composition API, `<script setup>`) + Vue Router 4 |
+| Framework | **Vue 3** (Composition API, `<script setup>`) + Vue Router 4 + **Pinia** |
 | Mapa | **Mapbox GL JS 3.12** |
 | Cálculos geoespaciales | **Turf.js 3** (`turf.along`, `turf.lineDistance`) |
 | Build | **Vite 6** (Rollup) |
@@ -24,17 +24,23 @@ Aplicación web interactiva para visualizar las rutas de la **Maratón de Cali 2
 
 ```
 src/
-├── main.js                  # Punto de entrada — monta App, router, CSS global
+├── main.js                  # Punto de entrada — monta App, router, Pinia (createPinia), CSS global
 ├── App.vue                  # Shell con <router-view/> y useTheme composable
 │
 ├── router/index.js          # Rutas: / (home), /about, /route/:routeId
 │
+├── stores/
+│   ├── playbackStore.js     # Estado global del playback y datos de ruta (Pinia)
+│   └── recordingStore.js    # (Planificado) Estado de grabación de pantalla
+│
 ├── composables/
-│   ├── useRouteAnimation.js # Composable de animación del mapa (frame loop, controles)
-│   ├── useMapLayers.js      # Configuración de sources y layers de Mapbox
-│   ├── useMarkers.js        # Sistema de marcas (actualmente inactivo)
+│   ├── useRouteAnimation.js # Animación del mapa (frame loop con coord lookup O(1), cámara lerp, throttled progress)
+│   ├── useMapLayers.js      # Sources/layers de Mapbox + HTML head marker (mapboxgl.Marker)
+│   ├── useMarkers.js        # Marcas KM + popup por geofence de fase con debounce
+│   ├── useMarkPopup.js      # (implícito) Popup reutilizable con cache de cluster (trackPointer:false)
 │   ├── useScrub.js          # Interacción de scrub (mouse/touch) en barra de reproducción
-│   └── usePlaybackStats.js  # Estadísticas computadas del playback
+│   ├── usePlaybackStats.js  # Estadísticas computadas del playback
+│   └── useScreenRecording.js # (Planificado) Lógica de grabación de pantalla
 │
 ├── config/
 │   └── mapbox.js            # Configuración centralizada de Mapbox (token, style, center, zoom, pitch)
@@ -55,7 +61,9 @@ src/
 │   ├── RaceTitle.vue        # Overlay con nombre, tipo, ciudad y dificultad de la ruta
 │   ├── LoadingSpinner.vue   # Spinner animado reutilizable con mensaje opcional
 │   ├── ErrorMessage.vue     # Mensaje de error reutilizable con botón de retry
-│   └── icons/               # Componentes SVG icon reutilizables (IconPlay, IconPause, etc.)
+│   ├── RecordButton.vue     # (Planificado) Botón de grabación de pantalla
+│   ├── RecordCountdown.vue  # (Planificado) Overlay countdown 3-2-1 para grabación
+│   └── icons/               # Componentes SVG icon reutilizables (IconPlay, IconPause, IconRecord, etc.)
 │
 ├── theme/
 │   ├── index.js             # Barrel export (useTheme + tokens)
@@ -89,23 +97,29 @@ event.json ──▶ EventHome (orquestador) ──▶ router-link /route/:id
                               ┌───────┼───────┐
                               ▼       ▼       ▼
                          RouteMap  PlayBack  RaceTitle
-                              │    ┌──┼──┐
-                              │    ▼  ▼  ▼
-                              │  ElevationChart
-                              │  useScrub
-                              │  usePlaybackStats
-                              ▼
-                     useRouteAnimation
-                       ┌──────┼──────┐
-                       ▼      ▼      ▼
-                  useMapLayers useMarkers (camera/frame)
+                              │    ┌──┼──┐      │
+                              │    ▼  ▼  ▼      │
+                              │  ElevChart       │
+                              │  useScrub         │
+                              │  usePlaybackStats │
+                              ▼                   │
+                     useRouteAnimation         │
+                       ┌──────┼──────┐    │
+                       ▼      ▼      ▼    │
+                  useMapLayers useMarkers  │
+                              │           │
+                     ────────▼─────────▼───
+                     │   playbackStore (Pinia)  │
+                     ──────────────────────────
 ```
 
-1. **`RouteMapView`** carga dinámicamente los assets (`.geojson` + `.csv`) según el `routeId`.
-2. Es la **única fuente de verdad** del estado de reproducción (`progress`, `isPlaying`, `currentSpeed`).
-3. **`RouteMap`** ejecuta la animación vía `requestAnimationFrame` y emite `update:progress`.
-4. **`PlayBack`** muestra stats (distancia, elevación, pendiente, ascenso acumulado, tiempo) y permite scrub/play/pause/speed.
-5. La comunicación es **parent-driven**: los hijos emiten eventos, el padre actualiza props compartidas.
+1. **`RouteMapView`** delega la carga de assets al store: `playbackStore.loadRoute(routeId)`. Es un orquestador ligero que sólo gestiona el watcher de ruta y el error boundary.
+2. La **fuente de verdad** del estado de reproducción (`progress`, `isPlaying`, `speed`) y los datos de ruta (`pathData`, `elevationProfile`, etc.) es `playbackStore`.
+3. **`RouteMap`** lee el store directamente vía `useRouteAnimation(store)`, que escribe `store.setProgress()` cada frame y lee `store.isPlaying`/`store.speed`.
+4. **`PlayBack`** lee el store con `storeToRefs()` e invoca actions (`store.togglePlay()`, `store.setSpeed()`, `store.setProgress()` vía `useScrub(store)`).
+5. **`RaceTitle`** lee `store.routeConfig` y `store.eventCity` directamente.
+6. **`ElevationChart`** sigue recibiendo props de `PlayBack` (componente presentacional puro).
+7. La comunicación es **store-driven**: no hay prop drilling ni emits para el estado del playback. La única prop que `RouteMapView` pasa es `fullscreenContainer` a `RouteMap`.
 
 ### Sistema de temas
 

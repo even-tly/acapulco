@@ -8,45 +8,11 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import mapboxgl from 'mapbox-gl';
+import { usePlaybackStore } from '@/stores/playbackStore';
 import { useRouteAnimation } from '@/composables/useRouteAnimation';
 import { mapboxConfig } from '@/config/mapbox';
 
 const props = defineProps({
-  // GeoJSON FeatureCollection — features[0] must be a LineString
-  pathData: {
-    type: Object,
-    required: true,
-  },
-  // GeoJSON FeatureCollection of Point features (marks) — kept for future use
-  marksData: {
-    type: Object,
-    default: () => ({ type: 'FeatureCollection', features: [] }),
-  },
-  // Animation duration in milliseconds
-  duration: {
-    type: Number,
-    default: 300000,
-  },
-  // Current progress (0–1) synced with parent for PlayBack coordination
-  progress: {
-    type: Number,
-    default: 0,
-  },
-  // Whether the animation is currently playing (driven by parent)
-  playing: {
-    type: Boolean,
-    default: true,
-  },
-  // Speed multiplier for animation (driven by parent)
-  speed: {
-    type: Number,
-    default: 1,
-  },
-  // Toggle to activate marks rendering — disabled for now
-  showMarks: {
-    type: Boolean,
-    default: false,
-  },
   // DOM element to use as fullscreen container (defaults to map container)
   fullscreenContainer: {
     type: Object,
@@ -54,7 +20,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(['update:progress']);
+const store = usePlaybackStore();
 
 // Template ref
 const mapContainer = ref(null);
@@ -63,7 +29,7 @@ const mapContainer = ref(null);
 let map = null;
 
 // Composable — watchers are registered immediately; setup() called after map loads
-const { setup: setupAnimation } = useRouteAnimation(props, emit);
+const { setup: setupAnimation } = useRouteAnimation(store);
 
 function initMap() {
   // Mapbox configuration from centralized config

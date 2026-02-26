@@ -63,45 +63,19 @@
 
 <script setup>
 import { ref, computed } from 'vue';
+import { storeToRefs } from 'pinia';
+import { usePlaybackStore } from '@/stores/playbackStore';
 import IconPlay from '@/components/icons/IconPlay.vue';
 import IconPause from '@/components/icons/IconPause.vue';
 import ElevationChart from '@/components/ElevationChart.vue';
 import { useScrub } from '@/composables/useScrub';
 import { usePlaybackStats } from '@/composables/usePlaybackStats';
 
-const props = defineProps({
-  playing: {
-    type: Boolean,
-    default: true,
-  },
-  // Current progress (0–1) driven by parent, synced with RouteMap animation
-  progress: {
-    type: Number,
-    default: 0,
-  },
-  // Parsed elevation profile data from CSV
-  // Each object: { lat, lon, ele, time, segment_distance_km, distance_km_cum,
-  //                segment_time_s, elev_delta_m, elev_gain_pos_m, elev_gain_pos_cum_m, slope_percent }
-  elevationProfile: {
-    type: Array,
-    default: () => [],
-  },
-  // Total route distance in km (from the last profile point)
-  totalDistance: {
-    type: Number,
-    default: 0,
-  },
-  // Mark highlights on the profile — kept for future use
-  profileMarks: {
-    type: Array,
-    default: () => [],
-  },
-});
+const store = usePlaybackStore();
+const { progress, isPlaying, elevationProfile, totalDistance } = storeToRefs(store);
 
-const emit = defineEmits(['toggle-play', 'speed-change', 'update:progress']);
-
-// --- Composables ---
-const { progressTrack, onScrubStart, onTouchScrubStart } = useScrub(emit);
+// --- Composables (now receive store instead of emit/props) ---
+const { progressTrack, onScrubStart, onTouchScrubStart } = useScrub(store);
 const {
   currentProfilePoint,
   formattedDistance,
@@ -109,7 +83,7 @@ const {
   formattedSlope,
   formattedTotalAscent,
   formattedTime,
-} = usePlaybackStats(props);
+} = usePlaybackStats(store);
 
 /** Dynamic color for the grade stat: green when positive, red when negative */
 const gradeColor = computed(() => {
@@ -124,8 +98,7 @@ const speedOptions = [1, 1.5, 2, 3, 5];
 const speedIndex = ref(0);
 
 // --- Computed ---
-const isPlaying = computed(() => props.playing);
-const progressPercent = computed(() => Math.min(props.progress * 100, 100));
+const progressPercent = computed(() => Math.min(progress.value * 100, 100));
 
 const currentSpeed = computed(() => {
   const speed = speedOptions[speedIndex.value];
@@ -134,12 +107,12 @@ const currentSpeed = computed(() => {
 
 // --- Methods ---
 function togglePlay() {
-  emit('toggle-play', !isPlaying.value);
+  store.togglePlay();
 }
 
 function cycleSpeed() {
   speedIndex.value = (speedIndex.value + 1) % speedOptions.length;
-  emit('speed-change', speedOptions[speedIndex.value]);
+  store.setSpeed(speedOptions[speedIndex.value]);
 }
 </script>
 

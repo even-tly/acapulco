@@ -157,6 +157,8 @@ export function useMarkPopup(map) {
   const popup = new mapboxgl.Popup({
     closeButton: false,
     closeOnClick: false,
+    closeOnMove: false,
+    trackPointer: false,
     anchor: 'bottom',
     offset: [0, -20],
     className: 'mark-popup-container',
@@ -164,14 +166,31 @@ export function useMarkPopup(map) {
 
   let isVisible = false;
 
+  /** Cache: serialised lngLat of the currently-displayed popup (or null). */
+  let currentKey = null;
+
   /**
-   * Show (or update) the popup at the given coordinates with the provided marks.
+   * Show the popup at the given coordinates with the provided marks.
+   * If the popup is already showing at the SAME lngLat (same cluster), the
+   * call is a no-op — avoids repositioning / DOM rebuild every frame which
+   * caused visible vibration.
+   *
    * @param {[number, number]} lngLat - [lng, lat] where the popup should anchor
    * @param {Array<{name: string, type: string}>} marks - Classified marks to display
    */
   function show(lngLat, marks) {
+    // Build a lightweight cache key from the cluster coordinates
+    const key = `${lngLat[0]},${lngLat[1]}`;
+
+    if (isVisible && key === currentKey) {
+      // Same cluster already displayed — skip repositioning entirely
+      return;
+    }
+
     const html = buildPopupHTML(marks);
     popup.setLngLat(lngLat).setHTML(html);
+    currentKey = key;
+
     if (!isVisible) {
       popup.addTo(map);
       isVisible = true;
@@ -185,6 +204,7 @@ export function useMarkPopup(map) {
     if (isVisible) {
       popup.remove();
       isVisible = false;
+      currentKey = null;
     }
   }
 

@@ -2,9 +2,9 @@
  * usePlaybackStats — Composable for computed playback statistics.
  *
  * Derives formatted distance, elevation, slope, total ascent, and time
- * from the current progress and elevation profile data.
+ * from the current progress and elevation profile data in the Pinia playbackStore.
  *
- * @param {Object} props - Component props (progress, elevationProfile, totalDistance)
+ * @param {import('pinia').Store} store - The playback Pinia store instance
  * @returns {{ formattedDistance, formattedElevation, formattedSlope, formattedTotalAscent, formattedTime, currentProfilePoint }}
  */
 
@@ -32,19 +32,19 @@ function findNearestPoint(profile, distanceKm) {
   return profile[lo];
 }
 
-export function usePlaybackStats(props) {
+export function usePlaybackStats(store) {
   /** Current elevation profile point based on progress */
   const currentProfilePoint = computed(() => {
-    if (!props.elevationProfile || props.elevationProfile.length === 0) {
+    if (!store.elevationProfile || store.elevationProfile.length === 0) {
       return null;
     }
-    const currentDist = props.progress * props.totalDistance;
-    return findNearestPoint(props.elevationProfile, currentDist);
+    const currentDist = store.progress * store.totalDistance;
+    return findNearestPoint(store.elevationProfile, currentDist);
   });
 
   /** Current distance in km, formatted to 1 decimal place */
   const formattedDistance = computed(() => {
-    const dist = props.progress * props.totalDistance;
+    const dist = store.progress * store.totalDistance;
     return dist.toFixed(1);
   });
 
@@ -70,10 +70,10 @@ export function usePlaybackStats(props) {
 
   /** Elapsed time in HH:MM:SS format */
   const formattedTime = computed(() => {
-    if (!props.elevationProfile || props.elevationProfile.length === 0 || !currentProfilePoint.value) {
+    if (!store.elevationProfile || store.elevationProfile.length === 0 || !currentProfilePoint.value) {
       return '00:00:00';
     }
-    const startTime = new Date(props.elevationProfile[0].time).getTime();
+    const startTime = new Date(store.elevationProfile[0].time).getTime();
     const currentTime = new Date(currentProfilePoint.value.time).getTime();
     const totalSeconds = Math.max(0, Math.floor((currentTime - startTime) / 1000));
     const h = Math.floor(totalSeconds / 3600);

@@ -44,6 +44,14 @@ const PHASE_LEAD = 0.004;
 const PHASE_TRAIL = 0.004;
 
 /**
+ * Minimum phase delta before re-evaluating cluster proximity.
+ * Decouples the popup logic from the 60 fps frame loop — only checks
+ * when the animation has advanced enough for a cluster transition to matter.
+ * 0.0005 = 0.05% of route (~21 m on 42 km, ~7.5 m on 15 km).
+ */
+const MIN_PHASE_DELTA = 0.0005;
+
+/**
  * Calculate the distance along `lineFeature` to the `snapped` point returned
  * by turf.pointOnLine.  The legacy `turf` package only provides
  * `snapped.properties.index` (the segment index) and
@@ -187,6 +195,9 @@ export function useMarkers(map, marksData, showMarks, lineFeature, totalDistance
   /** Index of the cluster whose popup is currently showing (-1 = none). */
   let activeClusterIdx = -1;
 
+  /** Phase at which clusters were last evaluated (for debounce). */
+  let lastCheckedPhase = -1;
+
   /**
    * Called every animation frame with the current head position.
    * Uses route-fraction geofencing: each cluster has a phase window
@@ -206,15 +217,26 @@ export function useMarkers(map, marksData, showMarks, lineFeature, totalDistance
       if (activeClusterIdx >= 0) {
         hidePopup();
         activeClusterIdx = -1;
+        lastCheckedPhase = -1;
       }
       return;
     }
+
+    // Debounce: skip cluster evaluation if the phase has not changed enough.
+    // This decouples the popup from the 60 fps frame loop — cluster
+    // transitions only matter when the head has moved a meaningful distance.
+    if (Math.abs(phase - lastCheckedPhase) < MIN_PHASE_DELTA) {
+      return;
+    }
+    lastCheckedPhase = phase;
 
     // If a popup is showing, check if phase has exited its window
     if (activeClusterIdx >= 0) {
       const ac = clusters[activeClusterIdx];
       if (phase >= ac.startFraction - PHASE_LEAD && phase <= ac.endFraction + PHASE_TRAIL) {
-        return; // still inside window
+        // Still inside the active cluster window — showPopup is a no-op
+        // when the same cluster coords are already displayed (see useMarkPopup).
+        return;
       }
       // Exited → hide
       hidePopup();
@@ -225,6 +247,8 @@ export function useMarkers(map, marksData, showMarks, lineFeature, totalDistance
     for (let i = 0; i < clusters.length; i++) {
       const c = clusters[i];
       if (phase >= c.startFraction - PHASE_LEAD && phase <= c.endFraction + PHASE_TRAIL) {
+        // showPopup uses fixed pre-computed cluster center coords and
+        // skips repositioning if the same cluster is already showing.
         showPopup(c.center, c.marks);
         activeClusterIdx = i;
         return;
@@ -238,6 +262,7 @@ export function useMarkers(map, marksData, showMarks, lineFeature, totalDistance
   function resetPopup() {
     hidePopup();
     activeClusterIdx = -1;
+    lastCheckedPhase = -1;
   }
 
   return { updateHeadPosition, resetPopup };

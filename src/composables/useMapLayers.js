@@ -1,16 +1,17 @@
 /**
  * useMapLayers — Composable that manages Mapbox sources and layers for route rendering.
  *
- * Creates three layer groups:
+ * Creates two layer groups plus an HTML head marker:
  *  1. Full route (dashed, visible initially and when paused)
  *  2. Animated line (gradient, visible during playback)
- *  3. Head marker (circle at current animation position)
+ *  3. Head marker (HTML mapboxgl.Marker, updated via setLngLat for zero-lag positioning)
  *
  * @param {mapboxgl.Map} map - Mapbox map instance
  * @param {Object} lineFeature - GeoJSON LineString feature
- * @returns {{ showAnimationLayers: Function, showOverviewLayers: Function }}
+ * @returns {{ showAnimationLayers: Function, showOverviewLayers: Function, headMarker: mapboxgl.Marker }}
  */
 
+import mapboxgl from 'mapbox-gl';
 import tokens from '@/theme/tokens';
 
 export function useMapLayers(map, lineFeature) {
@@ -71,29 +72,24 @@ export function useMapLayers(map, lineFeature) {
     },
   });
 
-  // --- Animated head marker (circle at front of the path) ---
-  map.addSource('head', {
-    type: 'geojson',
-    data: {
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [],
-      },
-    },
-  });
-  map.addLayer({
-    id: 'headLayer',
-    type: 'circle',
-    source: 'head',
-    layout: {
-      'visibility': 'none',
-    },
-    paint: {
-      'circle-radius': 15,
-      'circle-color': tokens.colors.route.head,
-    },
-  });
+  // --- Animated head marker (HTML Marker — bypasses Mapbox render pipeline) ---
+  const headEl = document.createElement('div');
+  headEl.className = 'route-head-marker';
+  headEl.style.cssText = [
+    `width: 30px`,
+    `height: 30px`,
+    `border-radius: 50%`,
+    `background: ${tokens.colors.route.head}`,
+    `border: 2px solid #fff`,
+    `box-shadow: 0 0 6px rgba(0,0,0,0.4)`,
+    `pointer-events: none`,
+    `will-change: transform`,
+    `display: none`,    // hidden until animation starts
+  ].join(';');
+
+  const headMarker = new mapboxgl.Marker({ element: headEl, anchor: 'center' })
+    .setLngLat(coordinates[0])
+    .addTo(map);
 
   /**
    * Show animated layers (line + head) and hide full route.
@@ -101,19 +97,22 @@ export function useMapLayers(map, lineFeature) {
    */
   function showAnimationLayers() {
     map.setLayoutProperty('lineLayer', 'visibility', 'visible');
-    map.setLayoutProperty('headLayer', 'visibility', 'visible');
+    headEl.style.display = 'block';
     map.setLayoutProperty('fullRouteLayer', 'visibility', 'none');
   }
 
   /**
    * Show full route layer (overview mode when paused).
+   * Head marker stays hidden in overview.
    */
   function showOverviewLayers() {
     map.setLayoutProperty('fullRouteLayer', 'visibility', 'visible');
+    headEl.style.display = 'none';
   }
 
   return {
     showAnimationLayers,
     showOverviewLayers,
+    headMarker,
   };
 }

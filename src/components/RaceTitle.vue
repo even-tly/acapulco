@@ -11,58 +11,34 @@
 
 <script setup>
 import { computed } from 'vue';
+import { storeToRefs } from 'pinia';
+import { usePlaybackStore } from '@/stores/playbackStore';
 
-const props = defineProps({
-  /** Route display name, e.g. "21K" */
-  name: {
-    type: String,
-    default: '',
-  },
-  /** Race type label, e.g. "Half Marathon", "Marathon" */
-  type: {
-    type: String,
-    default: '',
-  },
-  /** City name, e.g. "Madrid" */
-  city: {
-    type: String,
-    default: '',
-  },
-  /** Total distance in km, e.g. 21.097 */
-  distance: {
-    type: Number,
-    default: 0,
-  },
-  /** Distance unit, e.g. "km" */
-  distanceUnit: {
-    type: String,
-    default: 'km',
-  },
-  /** Route difficulty: "easy" | "moderate" | "challenging" */
-  difficulty: {
-    type: String,
-    default: 'moderate',
-  },
-  /** Short description, e.g. "Castellana to Madrid Río" */
-  description: {
-    type: String,
-    default: '',
-  },
-});
+const store = usePlaybackStore();
+const { routeConfig } = storeToRefs(store);
+
+// Convenience computed refs that read from routeConfig
+const name = computed(() => routeConfig.value?.name ?? '');
+const type = computed(() => routeConfig.value?.type ?? '');
+const city = computed(() => store.eventCity);
+const distance = computed(() => routeConfig.value?.distance ?? 0);
+const distanceUnit = computed(() => routeConfig.value?.distanceUnit ?? 'km');
+const difficulty = computed(() => routeConfig.value?.difficulty ?? 'moderate');
+const description = computed(() => routeConfig.value?.description ?? '');
 
 /** Format total distance with locale separators, e.g. "21,097m" or "15km" */
 const formattedTotalDistance = computed(() => {
-  if (!props.distance) return '';
-  const isWholeKm = props.distance === Math.floor(props.distance);
+  if (!distance.value) return '';
+  const isWholeKm = distance.value === Math.floor(distance.value);
   if (isWholeKm) {
-    return `${props.distance.toLocaleString()}${props.distanceUnit}`;
+    return `${distance.value.toLocaleString()}${distanceUnit.value}`;
   }
-  const metres = Math.round(props.distance * 1000);
+  const metres = Math.round(distance.value * 1000);
   return `${metres.toLocaleString()}m`;
 });
 
 const difficultyClass = computed(() => {
-  return `race-title__badge--${props.difficulty}`;
+  return `race-title__badge--${difficulty.value}`;
 });
 </script>
 

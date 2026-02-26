@@ -2,15 +2,15 @@
  * useScrub — Composable for scrub (seek) interaction on the playback track.
  *
  * Handles mouse and touch-based scrubbing on the progress track element.
- * Emits progress updates (0–1) to the parent via the provided emit function.
+ * Writes progress updates (0–1) directly to the Pinia playbackStore.
  *
- * @param {Function} emit - Component emit function (must support 'update:progress')
+ * @param {import('pinia').Store} store - The playback Pinia store instance
  * @returns {{ progressTrack: Ref, isScrubbing: Ref, onScrubStart: Function, onTouchScrubStart: Function }}
  */
 
 import { ref, onBeforeUnmount } from 'vue';
 
-export function useScrub(emit) {
+export function useScrub(store) {
   /** Template ref for the scrub track element */
   const progressTrack = ref(null);
   /** Whether the user is currently scrubbing */
@@ -31,7 +31,7 @@ export function useScrub(emit) {
     const rect = track.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const progress = Math.max(0, Math.min(1, x / rect.width));
-    emit('update:progress', progress);
+    store.setProgress(progress);
   }
 
   /** Start mouse-based scrub interaction */
