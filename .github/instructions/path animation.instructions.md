@@ -372,6 +372,72 @@ Implementar un sistema de grabación de la animación del mapa para exportar vid
 Archivos nuevos: `src/stores/recordingStore.js`, `src/composables/useScreenRecording.js`, `src/components/RecordButton.vue`, `src/components/RecordCountdown.vue`, `src/components/icons/IconRecord.vue`.  
 Archivos modificados: `RouteMapView.vue`, `PlayBack.vue`, `RouteMap.vue` (agregar `preserveDrawingBuffer`), `tokens.js` (tokens de z-index y colores para countdown overlay).
 
+### 4.13 Rediseño del sistema de marcas del mapa (prioridad alta)
+
+Refactorizar el sistema de marcas para usar archivos `.geojson` con atributos declarativos (`path_l`, `path_d`, `label`, `sequence`), eliminar la lógica de clusterización, y gestionar la visibilidad de marcas según el estado de la animación (play/pause). Las imágenes de cada marca ya agrupan toda la iconografía necesaria en un solo asset, simplificando tanto el renderizado del popup como la lógica de trigger.
+
+**Contexto del cambio de datos**:
+
+- Los archivos `.json` de marcas (formato legacy con `name: "KM5"`, `name: "Agua"`, etc.) se reemplazan por archivos `.geojson` que ya existen en `assets/marks/`.
+- El nuevo formato GeoJSON usa los siguientes atributos por feature:
+  - `name`: tipo de marca — `"Dist"`, `"Dist, Service"`, `"Service"`, `"Start"`, `"Finish"`, o `null` (waypoints sin marca).
+  - `label`: texto visible en el popup (puede ser `null`; no debe causar error).
+  - `path_l` / `path_d`: ruta relativa dentro de `assets/` de la imagen para tema light / dark respectivamente.
+  - `distance`: distancia acumulada en metros desde el inicio de la ruta.
+  - `angle`: bearing/dirección en ese punto.
+  - `sequence`: orden explícito en que la marca debe activar su popup durante la animación.
+- Cada imagen en `path_l`/`path_d` ya agrupa toda la iconografía necesaria (ej. `distgato_mark.png` combina ícono de distancia + Gatorade), eliminando la necesidad de clusterizar marcas adyacentes.
+- Features con `name === null` son waypoints de interpolación (cada ~250 m); NO son marcas y no deben generar popup ni punto visual.
+
+**Prerequisitos de datos**:
+
+- Todos los archivos `assets/marks/{id}.geojson` deben existir con el esquema descrito arriba.
+- Las imágenes referenciadas en `path_l`/`path_d` deben existir en `assets/`.
+- El atributo `sequence` de cada feature-marca debe coincidir con el índice ordinal del feature dentro del array de features (validación en runtime con warning en consola si difiere).
+- `assets/marks/42k.geojson` debe crearse/actualizarse con el nuevo formato (el actual `42k.json` usa el formato legacy `"KM5"`, `"Agua"`, etc.).
+
+**Fase 0 — Migrar carga de datos de .json a .geojson: ✅ COMPLETADA**
+
+1. ~~En `playbackStore.js`, acción `loadRoute()`: cambiar la carga de marcas de `import('@/assets/marks/${routeId}.json')` a `import('@/assets/marks/${routeId}.geojson')`.~~
+2. ~~Eliminar el fallback a puntos GeoJSON extraídos de la ruta (ya no necesario — el `.geojson` de marcas es la fuente canónica).~~
+3. ~~Evaluar si el flag `legacy` en `event.json` sigue siendo necesario para la carga de marcas. Si todas las rutas migran al nuevo formato, simplificar la lógica de `loadRoute()` eliminando la bifurcación legacy/standard.~~ Eliminada completamente — ambas rutas usan el flujo unificado GeoJSON + CSV + marks `.geojson`.
+
+**Fase 1 — Actualizar filtro y visibilidad de capas de marcas: ✅ COMPLETADA**
+
+4. ~~**Reemplazar `KM_FILTER` por `DIST_FILTER`**~~: el nombre `"KM"` ya no existe en los datos. La nueva expresión Mapbox filtra features cuyo `name` empieza con `"Dist"` (incluye tanto `"Dist"` como `"Dist, Service"`). Ejemplo: `['==', ['slice', ['coalesce', ['get', 'name'], ''], 0, 4], 'Dist']`.
+5. **Agregar capa `marks-all-dots`**: segunda capa circle que muestra TODOS los features con `name !== null` y `path_l !== null`. Se configura con `minzoom` (umbral de zoom a partir del cual las marcas son visibles durante la animación). Esta capa se inicializa con `visibility: 'none'`.
+6. **Gestión de visibilidad por estado de animación**:
+   - **Inicial / Pause**: capa `marks-dist-dots` visible, capa `marks-all-dots` oculta.
+   - **Play (tras fly-to-start)**: ambas capas visibles; `marks-all-dots` se muestra automáticamente a partir del `minzoom` configurado.
+   - Exponer funciones `showPlayMarks()` / `showPauseMarks()` desde `useMarkers`.
+   - `useRouteAnimation` invoca `showPlayMarks()` en `showAnimationLayers()` y `showPauseMarks()` en `showOverviewLayers()` / al pausar.
+
+**Fase 2 — Eliminar clusterización y simplificar trigger de popup: ✅ COMPLETADA**
+
+7. ~~**Eliminar**: funciones `computeClusters()`, `finaliseCluster()`, `sqDist()`, constante `CLUSTER_THRESHOLD`, variable `activeClusterIdx`, y toda referencia a clusters en `updateHeadPosition()`.~~
+8. **Nuevo modelo de marks interno**: cada feature con `name !== null` y `path_l !== null` es un candidato individual de popup. Se proyecta sobre la ruta con `turf.pointOnLine` → `distanceAlongRoute()` para obtener su `routeFraction` (idéntico al mecanismo actual).
+9. **Orden de popups**: usar el atributo `sequence` del GeoJSON como índice de ordenación. Si no está presente, usar el orden natural de los features. Validar en desarrollo (modo dev) que el `sequence` de cada marca coincide con su posición ordinal entre las marcas; emitir `console.warn` si difiere.
+10. **Trigger simplificado**: mantener `PHASE_LEAD` y `PHASE_TRAIL` pero aplicados por marca individual en lugar de por cluster. Cada marca tiene su ventana de fase `[routeFraction - PHASE_LEAD, routeFraction + PHASE_TRAIL]`. Solo un popup visible a la vez; se reemplaza la variable `activeClusterIdx` por `activeMarkIdx`.
+11. **Mantener debounce**: conservar `MIN_PHASE_DELTA` y `lastCheckedPhase` para desacoplar la evaluación del frame loop de 60 fps.
+
+**Fase 3 — Popup temático con imágenes declarativas: ✅ COMPLETADA**
+
+12. ~~**Eliminar**: `ICON_URLS` (mapa hardcodeado de URLs de íconos), `classifyMark()` (función y su export), `MARK_PRIORITY` (jerarquía de tipos).~~
+13. **Nuevo `buildPopupHTML(mark, isLightTheme)`**: recibe un solo objeto mark con propiedades del GeoJSON (`path_l`, `path_d`, `label`). Selecciona la ruta de imagen según el tema: `mark.path_l` si light, `mark.path_d` si dark. Resuelve la URL de la imagen con `new URL('../' + path, import.meta.url).href` para compatibilidad Vite. Muestra `mark.label` como texto si no es `null`/vacío; omite el span de label silenciosamente si es `null`.
+14. **Theme awareness**: `useMarkPopup` recibe un getter o ref `isLightTheme` para seleccionar la imagen correcta. Se obtiene del composable `useTheme()` importado directamente dentro de `useMarkPopup`, o se pasa como argumento desde `useMarkers` → `useRouteAnimation`.
+15. **Cache de popup**: mantener el cache por key (`lngLat`) para evitar DOM rebuild cada frame. **Invalidar cache cuando cambia el tema** para que el popup se reconstruya con la imagen del tema correcto si el usuario cambia de tema durante la animación.
+
+**Fase 4 — Limpieza y verificación:**
+
+16. Eliminar archivos `.json` de marcas obsoletos (`assets/marks/15k.json`, `assets/marks/42k.json`) una vez confirmado que todas las rutas usan `.geojson`.
+17. Eliminar imágenes de íconos individuales que ya no se usen (`km-mark.png`, `water-mark.png`, `gatorade-mark.png`, `going-mark.png`, `start-mark.png`, `finish-mark.png`) si las nuevas imágenes compuestas las reemplazan completamente.
+18. Actualizar este archivo de instrucciones: sección 2.2 (descripción de `useMarkers` y `useMarkPopup`), sección 2.4 (convención de datos de marcas), sección 3.2 (descripción de la animación del mapa y marcas).
+19. Verificar en ambos temas (dark y light) y en ambas rutas (15k, 42k).
+
+Archivos modificados: `playbackStore.js`, `useMarkers.js`, `useMarkPopup.js`, `useRouteAnimation.js`.  
+Archivos eliminados (potencial): `assets/marks/15k.json`, `assets/marks/42k.json`, íconos individuales obsoletos.  
+Dependencias nuevas: ninguna.
+
 ---
 
 ## 5. Reglas para contribuir
