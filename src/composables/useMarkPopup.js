@@ -62,7 +62,7 @@ function injectPopupStyles() {
     }
 
     .mark-popup__icon {
-      height: 32px;
+      height: 48px;
       width: auto;
     }
 
