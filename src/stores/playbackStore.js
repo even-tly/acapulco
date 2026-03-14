@@ -91,58 +91,37 @@ export const usePlaybackStore = defineStore('playback', {
       this.routeConfig = config;
 
       try {
-        if (config.legacy) {
-          // Legacy route: separate path + marks JSON files
-          const [pathModule, marksModule] = await Promise.all([
-            import(`@/assets/routes/${routeId}.json`),
-            import(`@/assets/marks/${routeId}.json`),
-          ]);
-          this.pathData = pathModule.default || pathModule;
-          this.marksData = marksModule.default || marksModule;
-          this.elevationProfile = [];
-          this.totalDistance = 0;
-        } else {
-          // Standard route: GeoJSON + elevation CSV + marks (optional)
-          const [geojsonModule, csvModule] = await Promise.all([
-            import(`@/assets/routes/${routeId}.geojson`),
-            import(`@/assets/elevation/${routeId}.csv?raw`),
-          ]);
+        // Load route GeoJSON, elevation CSV and marks GeoJSON in parallel
+        const [geojsonModule, csvModule, marksModule] = await Promise.all([
+          import(`@/assets/routes/${routeId}.geojson`),
+          import(`@/assets/elevation/${routeId}.csv?raw`),
+          import(`@/assets/marks/${routeId}.geojson`),
+        ]);
 
-          const rawGeojson = geojsonModule.default || geojsonModule;
-          const csvText = csvModule.default || csvModule;
+        const rawGeojson = geojsonModule.default || geojsonModule;
+        const csvText = csvModule.default || csvModule;
 
-          // Flatten GeoJSON: strip Z (elevation) values from coordinates and
-          // normalise MultiLineString → LineString so Mapbox only receives 2D data.
-          const geojson = flattenGeoJson(rawGeojson);
+        // Flatten GeoJSON: strip Z (elevation) values from coordinates and
+        // normalise MultiLineString → LineString so Mapbox only receives 2D data.
+        const geojson = flattenGeoJson(rawGeojson);
 
-          // Extract the LineString (route geometry) for pathData
-          const lineFeature = geojson.features.find(f => f.geometry.type === 'LineString');
+        // Extract the LineString (route geometry) for pathData
+        const lineFeature = geojson.features.find(f => f.geometry.type === 'LineString');
 
-          this.pathData = {
-            type: 'FeatureCollection',
-            features: lineFeature ? [lineFeature] : [],
-          };
+        this.pathData = {
+          type: 'FeatureCollection',
+          features: lineFeature ? [lineFeature] : [],
+        };
 
-          // Load named marks from marks/{id}.json (KM markers, hydration, start/finish)
-          // Falls back to GeoJSON Point features if marks file is unavailable.
-          try {
-            const marksModule = await import(`@/assets/marks/${routeId}.json`);
-            this.marksData = marksModule.default || marksModule;
-          } catch {
-            const pointFeatures = geojson.features.filter(f => f.geometry.type === 'Point');
-            this.marksData = {
-              type: 'FeatureCollection',
-              features: pointFeatures,
-            };
-          }
+        // Marks GeoJSON is the canonical source for mark data
+        this.marksData = marksModule.default || marksModule;
 
-          // Parse elevation CSV into numeric-typed array
-          this.elevationProfile = parseElevationCsv(csvText);
+        // Parse elevation CSV into numeric-typed array
+        this.elevationProfile = parseElevationCsv(csvText);
 
-          // Total distance from the last profile point
-          if (this.elevationProfile.length > 0) {
-            this.totalDistance = this.elevationProfile[this.elevationProfile.length - 1].distance_km_cum;
-          }
+        // Total distance from the last profile point
+        if (this.elevationProfile.length > 0) {
+          this.totalDistance = this.elevationProfile[this.elevationProfile.length - 1].distance_km_cum;
         }
 
         this.duration = config.duration;

@@ -142,7 +142,7 @@ export function useRouteAnimation(store) {
 
     // --- Initialize map layers and marks ---
     const { showAnimationLayers, showOverviewLayers, headMarker } = useMapLayers(map, lineFeature);
-    const { updateHeadPosition, resetPopup } = useMarkers(map, marksData, showMarks, lineFeature, totalDistance);
+    const { updateHeadPosition, resetPopup, showPlayMarks, showPauseMarks } = useMarkers(map, marksData, showMarks, lineFeature, totalDistance);
 
     // --- Speed control (called from speed watcher) ---
     _setSpeed = (newSpeed) => {
@@ -318,6 +318,7 @@ export function useRouteAnimation(store) {
 
         // Show animated layers, hide full route
         showAnimationLayers();
+        showPlayMarks();
 
         // Fly to start point of route (pitch 45, zoom 17)
         // Reduced duration (T9) + essential:true to prevent user interruption
@@ -343,6 +344,7 @@ export function useRouteAnimation(store) {
 
         // Show animated layers, hide full route
         showAnimationLayers();
+        showPlayMarks();
 
         if (savedCameraState) {
           // Reduced duration (T9) + essential:true for snappier resume
@@ -390,6 +392,7 @@ export function useRouteAnimation(store) {
 
         // Show full route in gray behind animated progress; hide popup
         showOverviewLayers();
+        showPauseMarks();
         resetPopup();
 
         // Fly to fit route extent, top-down view

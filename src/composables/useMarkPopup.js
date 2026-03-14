@@ -1,12 +1,12 @@
 /**
  * useMarkPopup — Reusable composable that manages a single Mapbox GL popup
- * for displaying race mark icons during animation.
+ * for displaying race mark images during animation.
  *
  * Features:
  *  - Single popup instance (only one visible at a time)
  *  - Themed styling via CSS custom properties (inherits from the app theme)
- *  - Mark icons ordered by hierarchy when multiple marks are grouped
- *  - Labels shown for KM, Salida and Llegada marks
+ *  - Declarative image paths from GeoJSON (path_l / path_d)
+ *  - Theme-aware: rebuilds popup when theme changes
  *
  * @module useMarkPopup
  * @param {mapboxgl.Map} map - Mapbox map instance
@@ -14,45 +14,8 @@
  */
 
 import mapboxgl from 'mapbox-gl';
-
-/* ── Icon URLs (Vite-compatible static imports) ─────────────── */
-
-const ICON_URLS = {
-  km:       new URL('../assets/km-mark.png', import.meta.url).href,
-  agua:     new URL('../assets/water-mark.png', import.meta.url).href,
-  gatorade: new URL('../assets/gatorade-mark.png', import.meta.url).href,
-  going:    new URL('../assets/going-mark.png', import.meta.url).href,
-  salida:   new URL('../assets/start-mark.png', import.meta.url).href,
-  llegada:  new URL('../assets/finish-mark.png', import.meta.url).href,
-};
-
-/**
- * Display priority — lower number appears first in the popup.
- * Matches the user-defined hierarchy: KM → Agua → Gatorade → Going.
- */
-const MARK_PRIORITY = {
-  km:       1,
-  agua:     2,
-  gatorade: 3,
-  going:    4,
-  salida:   5,
-  llegada:  6,
-};
-
-/**
- * Classify a mark name string into a normalized type key.
- * @param {string} name - Feature property name (e.g. "KM5", "Agua", "Gatorade")
- * @returns {string|null} Type key or null if unrecognized
- */
-export function classifyMark(name) {
-  if (name.startsWith('KM')) return 'km';
-  if (name === 'Agua') return 'agua';
-  if (name === 'Gatorade') return 'gatorade';
-  if (name === 'Gel Going') return 'going';
-  if (name === 'Salida') return 'salida';
-  if (name === 'Llegada') return 'llegada';
-  return null;
-}
+import { useTheme } from '@/theme/useTheme';
+import { watch } from 'vue';
 
 /* ── Popup styles (injected once into document head) ────────── */
 
@@ -99,14 +62,13 @@ function injectPopupStyles() {
     }
 
     .mark-popup__icon {
-      width: 32px;
       height: 32px;
-      object-fit: contain;
+      width: auto;
     }
 
     .mark-popup__label {
       font-family: var(--font-family);
-      font-size: 10px;
+      font-size: 15px;
       font-weight: 700;
       color: var(--color-text);
       line-height: 1;
@@ -117,42 +79,45 @@ function injectPopupStyles() {
 }
 
 /**
- * Build HTML content for the popup given a list of classified marks.
- * Marks are sorted by hierarchy priority; KM / Salida / Llegada include labels.
+ * Resolve an asset path (relative to src/assets/) to a Vite-compatible URL.
+ * @param {string} path - Relative path like "assets/dist_mark.png"
+ * @returns {string} Resolved URL
+ */
+function resolveAssetUrl(path) {
+  return new URL('../' + path, import.meta.url).href;
+}
+
+/**
+ * Build HTML content for the popup from a single mark's GeoJSON properties.
+ * Selects the image path based on the current theme.
  *
- * @param {Array<{name: string, type: string}>} marks
+ * @param {Object} mark - Mark properties (path_l, path_d, label)
+ * @param {boolean} isLight - Whether the light theme is active
  * @returns {string} HTML string
  */
-function buildPopupHTML(marks) {
-  const sorted = [...marks].sort(
-    (a, b) => (MARK_PRIORITY[a.type] ?? 99) - (MARK_PRIORITY[b.type] ?? 99)
-  );
+function buildPopupHTML(mark, isLight) {
+  const imgPath = isLight ? mark.path_l : mark.path_d;
+  if (!imgPath) return '';
 
-  const items = sorted
-    .map((m) => {
-      const iconUrl = ICON_URLS[m.type];
-      if (!iconUrl) return '';
+  const imgUrl = resolveAssetUrl(imgPath);
+  const label = mark.label
+    ? `<span class="mark-popup__label">${mark.label}</span>`
+    : '';
 
-      const showLabel = m.type === 'km' || m.type === 'salida' || m.type === 'llegada';
-      const label = showLabel
-        ? `<span class="mark-popup__label">${m.name}</span>`
-        : '';
-
-      return `<div class="mark-popup__item"><img class="mark-popup__icon" src="${iconUrl}" alt="${m.name}" />${label}</div>`;
-    })
-    .join('');
-
-  return `<div class="mark-popup">${items}</div>`;
+  return `<div class="mark-popup"><div class="mark-popup__item"><img class="mark-popup__icon" src="${imgUrl}" alt="${mark.label || ''}" />${label}</div></div>`;
 }
 
 /**
  * Create a reusable mark popup bound to a Mapbox map.
+ * Theme-aware: invalidates cache when the theme changes.
  *
  * @param {mapboxgl.Map} map
- * @returns {{ show: (lngLat: [number, number], marks: Array) => void, hide: () => void }}
+ * @returns {{ show: (lngLat: [number, number], mark: Object) => void, hide: () => void }}
  */
 export function useMarkPopup(map) {
   injectPopupStyles();
+
+  const { isLightTheme } = useTheme();
 
   const popup = new mapboxgl.Popup({
     closeButton: false,
@@ -169,25 +134,34 @@ export function useMarkPopup(map) {
   /** Cache: serialised lngLat of the currently-displayed popup (or null). */
   let currentKey = null;
 
+  /** Cached theme state for rebuild detection. */
+  let cachedTheme = isLightTheme.value;
+
+  // Invalidate popup cache when theme changes so the image updates
+  watch(isLightTheme, (newVal) => {
+    cachedTheme = newVal;
+    if (isVisible) {
+      // Force rebuild on next show() by clearing cache key
+      currentKey = null;
+    }
+  });
+
   /**
-   * Show the popup at the given coordinates with the provided marks.
-   * If the popup is already showing at the SAME lngLat (same cluster), the
-   * call is a no-op — avoids repositioning / DOM rebuild every frame which
-   * caused visible vibration.
+   * Show the popup at the given coordinates with the provided mark.
+   * If the popup is already showing at the SAME lngLat and theme hasn't changed,
+   * the call is a no-op.
    *
    * @param {[number, number]} lngLat - [lng, lat] where the popup should anchor
-   * @param {Array<{name: string, type: string}>} marks - Classified marks to display
+   * @param {Object} mark - Mark properties from GeoJSON (path_l, path_d, label)
    */
-  function show(lngLat, marks) {
-    // Build a lightweight cache key from the cluster coordinates
+  function show(lngLat, mark) {
     const key = `${lngLat[0]},${lngLat[1]}`;
 
     if (isVisible && key === currentKey) {
-      // Same cluster already displayed — skip repositioning entirely
       return;
     }
 
-    const html = buildPopupHTML(marks);
+    const html = buildPopupHTML(mark, cachedTheme);
     popup.setLngLat(lngLat).setHTML(html);
     currentKey = key;
 
