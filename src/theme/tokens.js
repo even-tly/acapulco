@@ -19,11 +19,11 @@ const tokens = {
   /* ── Brand palette ────────────────────────────────────────── */
   colors: {
     brand: {
-      primary: '#FFA200',       // green accent used in buttons, dates
-      primaryHover: '#FF8C00',  // hover state of primary
-      accent: '#FF5722',        // vivid accent for playback UI
-      accentHover: '#FF7043',   // hover state of accent
-      accentDark: '#E64A19',    // darker accent variant
+      primary: '#73ff00',       // green accent used in buttons, dates
+      primaryHover: '#15ff00',  // hover state of primary
+      accent: '#15ff00',        // vivid accent for playback UI
+      accentHover: '#9eff43',   // hover state of accent
+      accentDark: '#0f920f',    // darker accent variant
     },
 
     /* ── Dark mode ───────────────────────────────────────────── */

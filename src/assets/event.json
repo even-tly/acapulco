@@ -1,29 +1,29 @@
 {
-  "city": "Cali",
-  "eventName": "Maratón de Cali",
-  "eventDate": "2026-05-03",
+  "city": "Floridablanca",
+  "eventName": "Reto Acapulco",
+  "eventDate": "2026-03-15",
   "routes": [
     {
-      "id": "15k",
-      "name": "15K",
-      "distance": 15,
+      "id": "7k",
+      "name": "7K",
+      "distance": 7,
+      "distanceUnit": "km",
+      "difficulty": "easy",
+      "type": "Distancia corta",
+      "description": "Ruta ideal para principiantes o para quienes buscan una experiencia más relajada. Perfecta para disfrutar del paisaje sin la presión de una distancia larga.",
+      "duration": 300000,
+      "zoom": 14
+    },
+    {
+      "id": "16k",
+      "name": "16K",
+      "distance": 16,
       "distanceUnit": "km",
       "difficulty": "moderate",
       "type": "Distancia larga",
-      "description": "Recorrido certificado por World Athletics.",
-      "duration": 300000,
-      "zoom": 12
-    },
-    {
-      "id": "42k",
-      "name": "42K",
-      "distance": 42,
-      "distanceUnit": "km",
-      "difficulty": "challenging",
-      "type": "Maratón",
-      "description": "Primera maratón de Sur América con sello Elite de World Athletics. Recorrido certificado.",
+      "description": "Ruta para corredores con experiencia que buscan un desafío mayor. Ideal para quienes desean poner a prueba su resistencia y disfrutar de un recorrido más extenso.",
       "duration": 600000,
-      "zoom": 11
+      "zoom": 12
     }
   ]
 }

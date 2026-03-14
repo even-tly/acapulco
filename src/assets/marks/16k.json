@@ -1,0 +1,25 @@
+{
+"type": "FeatureCollection",
+"name": "16k",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "distance": 0.0, "angle": 241.56020680064128, "name": "Salida" }, "geometry": { "type": "Point", "coordinates": [ -73.099336533324816, 7.051050147319569 ] } },
+{ "type": "Feature", "properties": { "distance": 1000.0, "angle": 246.95341623381813, "name": "KM1" }, "geometry": { "type": "Point", "coordinates": [ -73.105973361999816, 7.045480639372437 ] } },
+{ "type": "Feature", "properties": { "distance": 2000.0, "angle": 238.56803937473359, "name": "KM2" }, "geometry": { "type": "Point", "coordinates": [ -73.114286975981301, 7.042603457254169 ] } },
+{ "type": "Feature", "properties": { "distance": 3000.0, "angle": 185.15552355278695, "name": "KM3" }, "geometry": { "type": "Point", "coordinates": [ -73.119361758269534, 7.035969698623683 ] } },
+{ "type": "Feature", "properties": { "distance": 4000.0, "angle": 161.69435594524865, "name": "KM4" }, "geometry": { "type": "Point", "coordinates": [ -73.120981778653061, 7.029585784001313 ] } },
+{ "type": "Feature", "properties": { "distance": 5000.0, "angle": 181.96012698865235, "name": "KM5" }, "geometry": { "type": "Point", "coordinates": [ -73.123770211456431, 7.023230590094993 ] } },
+{ "type": "Feature", "properties": { "distance": 6000.0, "angle": 204.14319219613714, "name": "KM6" }, "geometry": { "type": "Point", "coordinates": [ -73.122535962353055, 7.020771275632097 ] } },
+{ "type": "Feature", "properties": { "distance": 7000.0, "angle": 177.89476461905372, "name": "KM7" }, "geometry": { "type": "Point", "coordinates": [ -73.125089804406002, 7.014435896330654 ] } },
+{ "type": "Feature", "properties": { "distance": 8000.0, "angle": 233.63671705599734, "name": "KM8" }, "geometry": { "type": "Point", "coordinates": [ -73.131390321437692, 7.011205405968576 ] } },
+{ "type": "Feature", "properties": { "distance": 9000.0, "angle": 42.81053968894269, "name": "KM9" }, "geometry": { "type": "Point", "coordinates": [ -73.127458120229946, 7.012337464957217 ] } },
+{ "type": "Feature", "properties": { "distance": 10000.0, "angle": 107.04790652588902, "name": "KM10" }, "geometry": { "type": "Point", "coordinates": [ -73.122206333261715, 7.017880397852221 ] } },
+{ "type": "Feature", "properties": { "distance": 11000.0, "angle": 204.94945737970193, "name": "KM11" }, "geometry": { "type": "Point", "coordinates": [ -73.123699932499534, 7.021933727134788 ] } },
+{ "type": "Feature", "properties": { "distance": 12000.0, "angle": 27.040764539963636, "name": "KM12" }, "geometry": { "type": "Point", "coordinates": [ -73.123731064161049, 7.027712550535452 ] } },
+{ "type": "Feature", "properties": { "distance": 13000.0, "angle": 331.37154514204332, "name": "KM13" }, "geometry": { "type": "Point", "coordinates": [ -73.117853490678741, 7.032605529195797 ] } },
+{ "type": "Feature", "properties": { "distance": 14000.0, "angle": 23.227666865475239, "name": "KM14" }, "geometry": { "type": "Point", "coordinates": [ -73.117033216063646, 7.04002228800132 ] } },
+{ "type": "Feature", "properties": { "distance": 15000.0, "angle": 79.096628052167759, "name": "KM15" }, "geometry": { "type": "Point", "coordinates": [ -73.109639097485044, 7.044690030809631 ] } },
+{ "type": "Feature", "properties": { "distance": 16000.0, "angle": 69.109506729146091, "name": "KM16" }, "geometry": { "type": "Point", "coordinates": [ -73.102579403205752, 7.049009554885121 ] } },
+{ "type": "Feature", "properties": { "distance": 16250.0, "angle": null, "name": "Llegada" }, "geometry": { "type": "Point", "coordinates": [ -73.099295871433128, 7.050955982939278 ] } }
+]
+}
