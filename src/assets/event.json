@@ -1,7 +1,7 @@
 {
   "city": "Floridablanca",
-  "eventName": "Reto Acapulco",
-  "eventDate": "2026-03-15",
+  "eventName": "Media Maratón de Floridablanca",
+  "eventDate": "2026-07-05",
   "routes": [
     {
       "id": "7k",
@@ -24,6 +24,39 @@
       "description": "Ruta para corredores con experiencia que buscan un desafío mayor. Ideal para quienes desean poner a prueba su resistencia y disfrutar de un recorrido más extenso.",
       "duration": 600000,
       "zoom": 12
+    },
+    {
+      "id": "5k",
+      "name": "5K",
+      "distance": 5,
+      "distanceUnit": "km",
+      "difficulty": "easy",
+      "type": "Distancia corta",
+      "description": "Ruta perfecta para principiantes o para quienes buscan una experiencia más relajada. Ideal para disfrutar del paisaje sin la presión de una distancia larga.",
+      "duration": 250000,
+      "zoom": 14
+    },
+    {
+      "id": "10k",
+      "name": "10K",
+      "distance": 10,
+      "distanceUnit": "km",
+      "difficulty": "moderate",
+      "type": "Distancia media",
+      "description": "Ruta para corredores con experiencia que buscan un desafío mayor. Ideal para quienes desean poner a prueba su resistencia y disfrutar de un recorrido más extenso.",
+      "duration": 450000,
+      "zoom": 13
+    },
+    {
+      "id": "21k",
+      "name": "21K",
+      "distance": 21,
+      "distanceUnit": "km",
+      "difficulty": "hard",
+      "type": "Media Maratón",
+      "description": "Ruta para corredores avanzados que buscan un desafío significativo. Ideal para quienes desean poner a prueba su resistencia y disfrutar de un recorrido más extenso.",
+      "duration": 900000,
+      "zoom": 11
     }
   ]
 }
